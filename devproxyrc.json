@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/dev-proxy/main/schemas/v0.18.0/rc.schema.json",
+  "plugins": [
+    {
+      "name": "OpenApiSpecGeneratorPlugin",
+      "enabled": false,
+      "pluginPath": "~appFolder/plugins/dev-proxy-plugins.dll"
+    },
+    {
+      "name": "ApiCenterProductionVersionPlugin",
+      "enabled": true,
+      "pluginPath": "~appFolder/plugins/dev-proxy-plugins.dll",
+      "configSection": "apiCenterProductionVersionPlugin"
+    }
+  ],
+  "urlsToWatch": [
+    "https://jsonplaceholder.typicode.com/*"
+  ],
+  "apiCenterProductionVersionPlugin": {
+    "subscriptionId": "@AZURE_SUBSCRIPTION_ID",
+    "resourceGroupName": "@AZURE_API_CENTER_RG",
+    "serviceName": "@AZURE_API_CENTER",
+    "workspaceName": "default"
+  }
+}

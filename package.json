@@ -1,0 +1,20 @@
+{
+  "name": "demo-openapispec-js",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start:app": "npx http-server -p 3000",
+    "start:proxy": "devproxy --record",
+    "start": "/bin/sh run.sh",
+    "test": "playwright test tests/all-paths.spec.js",
+    "test:versioned": "playwright test tests/versioned.spec.js"
+  },
+  "keywords": [],
+  "author": "Waldek Mastykarz",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "@types/node": "^20.12.10"
+  }
+}

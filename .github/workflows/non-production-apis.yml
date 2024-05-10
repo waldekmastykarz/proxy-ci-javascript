@@ -1,0 +1,95 @@
+name: Check for non-production APIs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Check for non-production APIs
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      LOG_FILE: devproxy.log
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          cache: "npm"
+      
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Store Playwright's Version
+        run: |
+          PLAYWRIGHT_VERSION=$(npm ls @playwright/test | grep @playwright | sed 's/.*@//')
+          echo "Playwright's Version: $PLAYWRIGHT_VERSION"
+          echo "PLAYWRIGHT_VERSION=$PLAYWRIGHT_VERSION" >> $GITHUB_ENV          
+
+      - name: Cache Playwright Browsers for Playwright's Version
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-ubuntu-${{ env.PLAYWRIGHT_VERSION }}
+
+      - name: Install Playwright Browsers
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps
+
+      - name: Store Dev Proxy's Version
+        run: |
+          DEVPROXY_VERSION=$(curl -s https://api.github.com/repos/microsoft/dev-proxy/releases | jq '.[0].tag_name' -r)
+          echo "Dev Proxy's Version: $DEVPROXY_VERSION"
+          echo "DEVPROXY_VERSION=$DEVPROXY_VERSION" >> $GITHUB_ENV          
+
+      - name: Cache Dev Proxy
+        id: cache-devproxy
+        uses: actions/cache@v4
+        with:
+          path: ./devproxy
+          key: devproxy-linux-${{ env.DEVPROXY_VERSION }}
+
+      - name: Install Dev Proxy
+        if: steps.cache-devproxy.outputs.cache-hit != 'true'
+        run: bash -c "$(curl -sL https://aka.ms/devproxy/setup-beta.sh)"
+
+      - name: Log into Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run
+        env:
+          # pass secrets so that Dev Proxy can connect to API Center
+          AZURE_API_CENTER: ${{ secrets.AZURE_API_CENTER }}
+          AZURE_API_CENTER_RG: ${{ secrets.AZURE_API_CENTER_RG }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: /bin/bash run.sh
+
+      - name: Upload Dev Proxy logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.LOG_FILE }}
+          path: ${{ env.LOG_FILE }}
+      
+      - name: Analyze Dev Proxy logs
+        run: |
+          log_file=${{ env.LOG_FILE }}
+          if grep -q "^  WARNING: Request" $log_file; then
+            echo "### Found issues :warning:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Dev Proxy detected the following API requests that refer to non-production APIs. Please review and update the requests to use the recommended production API versions instead." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "|Request|Current API version|Recommended API version|" >> $GITHUB_STEP_SUMMARY
+            echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+            while IFS= read -r line; do [[ $line =~ Request\ (.*)\ uses\ API\ version.*defined\ as\ (.*)\.\ Upgrade.*Recommended\ versions:\ (.*) ]] && echo "|${BASH_REMATCH[1]}|${BASH_REMATCH[2]}|${BASH_REMATCH[3]}|"; done < $log_file >> $GITHUB_STEP_SUMMARY; true
+          else
+            echo "### No issues found :white_check_mark:" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      
