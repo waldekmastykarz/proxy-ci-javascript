@@ -11,6 +11,16 @@
       "enabled": true,
       "pluginPath": "~appFolder/plugins/dev-proxy-plugins.dll",
       "configSection": "apiCenterProductionVersionPlugin"
+    },
+    {
+      "name": "MarkdownReporter",
+      "enabled": true,
+      "pluginPath": "~appFolder/plugins/dev-proxy-plugins.dll"
+    },
+    {
+      "name": "JsonReporter",
+      "enabled": true,
+      "pluginPath": "~appFolder/plugins/dev-proxy-plugins.dll"
     }
   ],
   "urlsToWatch": [

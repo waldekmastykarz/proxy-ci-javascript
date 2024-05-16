@@ -41,7 +41,7 @@ jobs:
 
       - name: Store Dev Proxy's Version
         run: |
-          DEVPROXY_VERSION=$(curl -s https://api.github.com/repos/microsoft/dev-proxy/releases | jq '.[0].tag_name' -r)
+          DEVPROXY_VERSION=v0.0.0-beta.16
           echo "Dev Proxy's Version: $DEVPROXY_VERSION"
           echo "DEVPROXY_VERSION=$DEVPROXY_VERSION" >> $GITHUB_ENV          
 
@@ -54,7 +54,7 @@ jobs:
 
       - name: Install Dev Proxy
         if: steps.cache-devproxy.outputs.cache-hit != 'true'
-        run: bash -c "$(curl -sL https://aka.ms/devproxy/setup-beta.sh)"
+        run: /bin/bash setup-beta.sh
 
       - name: Log into Azure
         uses: azure/login@v2
@@ -76,20 +76,15 @@ jobs:
         with:
           name: ${{ env.LOG_FILE }}
           path: ${{ env.LOG_FILE }}
+
+      - name: Upload Dev Proxy reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: Reports
+          path: ./*Reporter*
       
-      - name: Analyze Dev Proxy logs
+      - name: Write summary
         run: |
-          log_file=${{ env.LOG_FILE }}
-          if grep -q "^  WARNING: Request" $log_file; then
-            echo "### Found issues :warning:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Dev Proxy detected the following API requests that refer to non-production APIs. Please review and update the requests to use the recommended production API versions instead." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "|Request|Current API version|Recommended API version|" >> $GITHUB_STEP_SUMMARY
-            echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
-            while IFS= read -r line; do [[ $line =~ Request\ (.*)\ uses\ API\ version.*defined\ as\ (.*)\.\ Upgrade.*Recommended\ versions:\ (.*) ]] && echo "|${BASH_REMATCH[1]}|${BASH_REMATCH[2]}|${BASH_REMATCH[3]}|"; done < $log_file >> $GITHUB_STEP_SUMMARY; true
-          else
-            echo "### No issues found :white_check_mark:" >> $GITHUB_STEP_SUMMARY
-          fi
+          cat ApiCenterProductionVersionPlugin_MarkdownReporter.md >> $GITHUB_STEP_SUMMARY
 
       
